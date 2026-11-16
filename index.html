@@ -1320,26 +1320,59 @@ table.report-table tr:last-child td { border-bottom: none; }
         if (maxNeg < 2) rejectThreshold = Infinity;
         statuses.forEach(s => {
             const pos = s.posReceived, neg = s.negReceived;
-            if (pos === 0 && neg === 0) { s.category = 'isolated'; s.categoryLabel = 'Изолированный'; return; }
-            if (pos === 0 && neg > 0) {
-                if (neg >= rejectThreshold) { s.category = 'rejected'; s.categoryLabel = 'Отвергаемый'; }
-                else { s.category = 'neglected'; s.categoryLabel = 'Пренебрегаемый'; }
-                return;
-            }
-            if (pos >= starThreshold && neg < rejectThreshold) { s.category = 'star'; s.categoryLabel = 'Звезда'; return; }
-            if (neg >= rejectThreshold && pos < starThreshold) { s.category = 'rejected'; s.categoryLabel = 'Отвергаемый'; return; }
             
-            // ДОБАВЛЯЕМ НОВУЮ КАТЕГОРИЮ "ПРИНЯТЫЕ" (1-2 положительных выбора, без звезды)
-            if (pos >= 1 && pos <= 2) { 
+            // 1. Изолированные
+            if (pos === 0 && neg === 0) { 
+                s.category = 'isolated'; 
+                s.categoryLabel = 'Изолированный'; 
+                return; 
+            }
+            
+            // 2. Отвергаемые (высокий негатив)
+            if (neg >= rejectThreshold && pos < starThreshold) { 
+                s.category = 'rejected'; 
+                s.categoryLabel = 'Отвергаемый'; 
+                return; 
+            }
+
+            // 3. Звезды
+            if (pos >= starThreshold && neg < rejectThreshold) { 
+                s.category = 'star'; 
+                s.categoryLabel = 'Звезда'; 
+                return; 
+            }
+
+            // 4. Принятые (1-2 позитивных, негатива не больше, чем позитива)
+            if (pos >= 1 && pos <= 2 && neg <= pos) { 
                 s.category = 'accepted'; 
                 s.categoryLabel = 'Принятый'; 
                 return; 
             }
 
-            if (pos > 0 && pos === neg) { s.category = 'neutral'; s.categoryLabel = 'Нейтральный'; return; }
-            if (pos > neg) { s.category = 'preferred'; s.categoryLabel = 'Предпочитаемый'; return; }
-            if (pos < neg) { s.category = 'neglected'; s.categoryLabel = 'Пренебрегаемый'; return; }
-            s.category = 'neutral'; s.categoryLabel = 'Нейтральный';
+            // 5. Пренебрегаемые (негатива больше, чем позитива, или позитива 0 при наличии негатива)
+            if (neg > pos) { 
+                s.category = 'neglected'; 
+                s.categoryLabel = 'Пренебрегаемый'; 
+                return; 
+            }
+
+            // 6. Нейтральные (равное количество)
+            if (pos > 0 && pos === neg) { 
+                s.category = 'neutral'; 
+                s.categoryLabel = 'Нейтральный'; 
+                return; 
+            }
+
+            // 7. Предпочитаемые (позитива больше, и это не звезда)
+            if (pos > neg) { 
+                s.category = 'preferred'; 
+                s.categoryLabel = 'Предпочитаемый'; 
+                return; 
+            }
+
+            // fallback
+            s.category = 'neutral'; 
+            s.categoryLabel = 'Нейтральный';
         });
         const sorted = [...statuses].sort((a, b) => b.balance - a.balance);
         const totalPos = memberList.reduce((a, m) => a + m.choices.positive.length, 0);
@@ -1554,7 +1587,7 @@ table.report-table tr:last-child td { border-bottom: none; }
                     <li><strong>Пренебрегаемый</strong> — R⁺ = 0, R⁻ > 0 (ниже порога), либо R⁺ < R⁻.</li>
                     <li><strong>Отвергаемый</strong> — R⁻ ≥ порога.</li>
                     <li><strong>Звезда</strong> — R⁺ ≥ порога при R⁻ < порога.</li>
-                    <li><strong>Принятый</strong> — 1–2 положительных выбора, без статуса «Звезда».</li>
+                    <li><strong>Принятый</strong> — 1–2 положительных выбора, при условии, что отрицательных не больше, чем положительных.</li>
                     <li><strong>Нейтральный*</strong> — R⁺ = R⁻ > 0.</li>
                     <li><strong>Предпочитаемый</strong> — R⁺ > R⁻.</li>
                 </ul>
